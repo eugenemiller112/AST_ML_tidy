@@ -85,7 +85,7 @@ def process(data_path: str, test_jitter=False, test_seg=False):
         os.mkdir(save_path, v)
         video_path = os.path.join(data_path, v)
         video = np.asarray(Image.open(video_path))
-        video = jitter_correct(video)  # todo write this
+        video = jitter_correct(video)
 
         if test_jitter:
             cv2.imwrite(os.path.join(os.path.join(save_path, 'testing'), 'video'), video)
