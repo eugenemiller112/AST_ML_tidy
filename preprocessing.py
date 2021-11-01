@@ -32,7 +32,6 @@ def listdir_nods(path):
 
 
 def jitter_correct(video, lag: int = 5, crop: int = 100, upsample: int = 100, test_jitter: bool = False):
-
     alignment = np.empty((video.shape[0], video.shape[1] - 2 * crop, video.shape[2] - 2 * crop)).astype(np.uint16)
 
     save = np.empty((video.shape[0], video.shape[1], video.shape[2])).astype(np.uint16)
@@ -73,7 +72,6 @@ def jitter_correct(video, lag: int = 5, crop: int = 100, upsample: int = 100, te
         return alignment, save
 
     for n in range(video.shape[0]):
-
         alignment, save = loop(video[n, :, :], alignment, save, n)
 
     return save
@@ -98,6 +96,14 @@ def segment(frame_in, **kwargs):
     return segmented_frame, disk_inds
 
 
+def normalize(video):
+    video = video / 65535  # uint16 to double
+    mean = np.mean(video, axis=0)
+    blurr = skimage.filters.gaussian(mean, sigma=(100, 100))
+    video = np.divide(video, blurr)
+    return video
+
+
 # Oneshot Preprocessing
 def process(data_path: str, test_jitter=False, test_seg=False):
     paths = listdir_nods(data_path)
@@ -117,18 +123,17 @@ def process(data_path: str, test_jitter=False, test_seg=False):
         video_path = os.path.join(data_path, v)
 
         video = np.asarray(tiff.imread(video_path))
+        video = video / 65535
+
+        video = normalize(video)
+
         video = jitter_correct(video)
-
-
-        # todo need to implement normalization
 
         if test_jitter:
             path = os.path.join(os.path.join(save_path, 'testing'), 'video')
             print(path)
             cv2.imwrite(path + '.tif', video)
             return
-        plt.imshow(skimage.morphology.area_opening(video[0, :, :]))
-        plt.show()
         seg, inds = segment(video[0, :, :], crop=200, min_sigma=0, max_sigma=20, num_sigma=50,
                             threshold=0.001, overlap=0, radius=5)
 
@@ -137,7 +142,6 @@ def process(data_path: str, test_jitter=False, test_seg=False):
             for i in inds:
                 np.save(os.path.join(os.path.join(save_path, 'segmentations'), n + '.np'), i)
                 n += 1
-
 
         if test_seg:
             path = os.path.join(os.path.join(save_path, 'testing'), 'segment')
