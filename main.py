@@ -1,4 +1,6 @@
+from preprocessing import *
+from postprocessing import *
+from model import *
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print("hello")
+    process('/Volumes/External/20210611_cytox_preculture_run1', False, True)
