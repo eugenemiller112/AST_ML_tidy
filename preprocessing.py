@@ -134,8 +134,14 @@ def process(data_path: str, test_jitter=False, test_seg=False):
             print(path)
             cv2.imwrite(path + '.tif', video)
             return
-        seg, inds = segment(video[0, :, :], crop=200, min_sigma=0, max_sigma=20, num_sigma=50,
-                            threshold=0.001, overlap=0, radius=5)
+        sh = skimage.morphology.remove_small_objects(video[0, :, :], min_size=128)
+        plt.imshow(video[0, :, :])
+        plt.show()
+        plt.imshow(sh)
+        plt.show()
+
+        seg, inds = segment(video[0, :, :], crop=200, min_sigma=0.1, max_sigma=100, num_sigma=50,
+                            threshold=0.00001, overlap=0, radius=5)
 
         if not os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
