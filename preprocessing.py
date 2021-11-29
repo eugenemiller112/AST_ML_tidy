@@ -6,8 +6,11 @@ from skimage.registration import phase_cross_correlation
 from skimage.feature import blob_doh
 import sklearn
 from skimage.draw import disk
+from skimage.measure import regionprops
 import imreg_dft as imr
 import skimage
+
+print(skimage.__version__)
 
 import matplotlib.pyplot as plt
 
@@ -81,19 +84,21 @@ def segment(frame_in, **kwargs):
     s = frame_in.shape
     cropped = frame_in[kwargs['crop']:s[0] - kwargs['crop'], kwargs['crop']:s[1] - kwargs['crop']]
 
-    blobs = blob_doh(cropped, min_sigma=kwargs['min_sigma'], max_sigma=kwargs['max_sigma'],
-                     num_sigma=kwargs['num_sigma'], threshold=kwargs['threshold'],
-                     overlap=kwargs['overlap'])
+    lab = skimage.filters.threshold_local(cropped, block_size=11).astype(np.uint16)
+    lab = skimage.morphology.label(lab)
+    lab = skimage.morphology.remove_small_objects(lab, min_size=10)
 
-    segmented_frame = np.empty(frame_in.shape)
+    segmented_frame = np.zeros(s)
     disk_inds = []
-    for blob in blobs:
-        print(blob)
-        rr, cc = disk((int(blob[1] + kwargs.crop), int(blob[0] + kwargs.crop)), radius=kwargs.radius)
-        disk_inds.append([rr, cc])
-        segmented_frame[rr, cc] = 1
 
-    return segmented_frame, disk_inds
+    regions = regionprops(lab)
+    for region in regions:
+        c = region.centroid
+        rr, cc = disk((int(c[1] + kwargs['crop']), int(c[0] + kwargs['crop'])), radius=kwargs['radius'])
+        disk_inds.append([rr, cc])
+        segmented_frame[cc, rr] = 1
+
+    return segmented_frame, np.array(disk_inds)
 
 
 def normalize(video):
@@ -117,10 +122,13 @@ def process(data_path: str, test_jitter=False, test_seg=False):
         os.mkdir(os.path.join(save_path, 'testing'))
 
     for v in paths:
-
-        if not os.path.exists(os.path.join(save_path, v)):
-            os.mkdir(os.path.join(save_path, v))
+        if not v.endswith('.tif'):
+            continue
+        vsave = os.path.join(save_path, v)
+        if not os.path.exists(vsave):
+            os.mkdir(vsave)
         video_path = os.path.join(data_path, v)
+
 
         video = np.asarray(tiff.imread(video_path))
         video = video / 65535
@@ -134,39 +142,30 @@ def process(data_path: str, test_jitter=False, test_seg=False):
             print(path)
             cv2.imwrite(path + '.tif', video)
             return
-        sh = skimage.morphology.remove_small_objects(video[0, :, :], min_size=128)
-        plt.imshow(video[0, :, :])
-        plt.show()
-        plt.imshow(sh)
-        plt.show()
 
-        seg, inds = segment(video[0, :, :], crop=200, min_sigma=0.1, max_sigma=100, num_sigma=50,
+        seg, inds = segment(video[0, :, :], crop=200, min_sigma=5, max_sigma=20, num_sigma=50,
                             threshold=0.00001, overlap=0, radius=5)
 
-        if not os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
+        if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
             for i in inds:
-                np.save(os.path.join(os.path.join(save_path, 'segmentations'), n + '.np'), i)
+                np.save(os.path.join(os.path.join(save_path, 'segmentations'), str(n) + '.np'), str(i))
                 n += 1
 
         if test_seg:
             path = os.path.join(os.path.join(save_path, 'testing'), 'segment')
             print(path)
-            plt.imshow(seg)
-            plt.show()
             cv2.imwrite(path + '.png', seg)
             return
 
-        print(inds)
-        save_arr = np.empty((len(inds), video.shape[1], video.shape[2]))
+        save_arr = np.empty((len(inds), video.shape[0], len(inds[0, 0])))
 
         for nframe in range(video.shape[0]):
-
             loaded = video[nframe, :, :]
-
-            for s in range(len(seg[0])):
-                save_arr[s, :, :] = loaded[inds[s][1], inds[s][0]]
+            for s in range(len(inds)):
+                save_arr[s, nframe, :] = loaded[inds[s, 1], inds[s, 0]]
 
         for a in range(save_arr.shape[0]):
-            cv2.imwrite(filename='save_path' + a + '.png', image=save_arr[a, :, :].astype(np.uint16))
+            fsave = os.path.join(vsave,str(a) + '.png')
+            cv2.imwrite(filename=fsave, img=save_arr[a, :, :].astype(np.uint16))
     print("Done Processing", data_path)
