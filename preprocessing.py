@@ -110,40 +110,54 @@ def normalize(video):
 
 
 # Oneshot Preprocessing
-def process(data_path: str, test_jitter=False, test_seg=False):
+def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=False, test_seg=False):
     paths = listdir_nods(data_path)
-
-    # paths.sort(key=natural_keys)
 
     save_path = os.path.join(data_path, 'processed')
     if not os.path.exists(save_path):
+        print("Save directory not found. Partitioning...")
         os.mkdir(save_path)
         os.mkdir(os.path.join(save_path, 'segmentations'))
         os.mkdir(os.path.join(save_path, 'testing'))
+        print("Done")
 
+    # Create a list of video names
+    vlist = []
     for v in paths:
         if not v.endswith('.tif'):
             continue
-        vsave = os.path.join(save_path, v)
+        vlist.append(v[:-6])
+
+    vlist = list(dict.fromkeys(vlist))
+
+    for v in vlist:
+        dat_suffix = 'C' + str(dat_channel) + '.tif'
+        seg_suffix = 'C' + str(seg_channel) + '.tif'
+        print("Now processing", v)
+        vsave = os.path.join(save_path, v + dat_suffix)
         if not os.path.exists(vsave):
             os.mkdir(vsave)
-        video_path = os.path.join(data_path, v)
 
+        seg_video_path = os.path.join(data_path, v + seg_suffix)
+        dat_video_path = os.path.join(data_path, v + dat_suffix)
 
-        video = np.asarray(tiff.imread(video_path))
-        video = video / 65535
+        seg_video = np.asarray(tiff.imread(seg_video_path))
+        dat_video = np.asarray(tiff.imread(dat_video_path))
 
-        video = normalize(video)
+        seg_video = normalize(seg_video)
+        dat_video = normalize(dat_video)
 
-        video = jitter_correct(video)
+        seg_video = jitter_correct(seg_video)
+        dat_video = jitter_correct(dat_video)
 
         if test_jitter:
-            path = os.path.join(os.path.join(save_path, 'testing'), 'video')
+            path = os.path.join(os.path.join(save_path, 'testing'), 'video.tif')
+            print("See test video here:")
             print(path)
-            cv2.imwrite(path + '.tif', video)
+            tiff.imwrite(path, seg_video)
             return
 
-        seg, inds = segment(video[0, :, :], crop=200, min_sigma=5, max_sigma=20, num_sigma=50,
+        seg, inds = segment(seg_video[0, :, :], crop=200, min_sigma=5, max_sigma=20, num_sigma=50,
                             threshold=0.00001, overlap=0, radius=5)
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
@@ -154,18 +168,22 @@ def process(data_path: str, test_jitter=False, test_seg=False):
 
         if test_seg:
             path = os.path.join(os.path.join(save_path, 'testing'), 'segment')
+            plt.imshow(seg)
+            plt.show()
+            print("See test segmentation here:")
             print(path)
             cv2.imwrite(path + '.png', seg)
             return
 
-        save_arr = np.empty((len(inds), video.shape[0], len(inds[0, 0])))
+        save_arr = np.empty((len(inds), dat_video.shape[0], len(inds[0, 0])))
 
-        for nframe in range(video.shape[0]):
-            loaded = video[nframe, :, :]
+        for nframe in range(dat_video.shape[0]):
+            loaded = dat_video[nframe, :, :]
             for s in range(len(inds)):
                 save_arr[s, nframe, :] = loaded[inds[s, 1], inds[s, 0]]
 
         for a in range(save_arr.shape[0]):
-            fsave = os.path.join(vsave,str(a) + '.png')
+            fsave = os.path.join(vsave, str(a) + '.png')
             cv2.imwrite(filename=fsave, img=save_arr[a, :, :].astype(np.uint16))
-    print("Done Processing", data_path)
+    print("Done Processing, saved in:")
+    print(data_path)
