@@ -1,8 +1,127 @@
-import os
+import os, re
 import numpy as np
 from preprocessing import natural_keys, listdir_nods
 import cv2
 import PIL as Image
+import shutil
+import random, math
+
+
+def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus_wells: dict):
+    if os.path.exists(save_dir):
+        shutil.rmtree(save_dir)
+
+    # make the necessary directories
+    os.mkdir(save_dir)
+    os.mkdir(os.path.join(save_dir, 'train'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'train'), 'Res'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'train'), 'Sus'))
+    os.mkdir(os.path.join(save_dir, 'valid'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'valid'), 'Res'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'valid'), 'Sus'))
+    os.mkdir(os.path.join(save_dir, 'test'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'test'), 'Res'))
+    os.mkdir(os.path.join(os.path.join(save_dir, 'test'), 'Sus'))
+
+    # prob that a condition gets placed into validation (vprob) and test (tprob)
+    vprob = 0.3
+    tprob = 0.1
+
+    for e in exp_list:
+        e_path = os.path.join(os.path.join(data_dir, e), 'processed')
+
+        res_names = res_wells.get(e)  # get names of resistant wells
+
+        for w in res_names:
+
+            well_names = []  # arr to save paths
+
+            for well in listdir_nods(e_path):
+
+                if well == 'testing':  # skip segmentations dir
+                    pass
+                elif re.split('-', well)[1].strip().startswith(w):  # check for
+                    well_names.append(well)  # save path of well
+
+            rarr = np.linspace(1, len(well_names), num=len(well_names) - 1).tolist()
+            random.shuffle(rarr)
+
+            test_ns = []  # arr to save which wells will be in test set
+            valid_ns = []  # arr to save which wells will be in valid set
+
+            # determine which of the paths will be in test, valid
+            for i in range(math.ceil(tprob * len(res_names))):
+                test_ns.append(rarr.pop())
+
+            for i in range(math.ceil(vprob * len(res_names))):
+                valid_ns.append(rarr.pop())
+
+            # loop through and assign to correct directory (train, valid, or test)
+            n = 1
+            for name in well_names:
+                w_path = os.path.join(e_path, name)
+
+                if n in test_ns:
+                    save_path = os.path.join(os.path.join(save_dir, 'test'), 'Res')
+                elif n in valid_ns:
+                    save_path = os.path.join(os.path.join(save_dir, 'valid'), 'Res')
+                else:
+
+                    save_path = os.path.join(os.path.join(save_dir, 'train'), 'Res')
+
+                for dat in listdir_nods(w_path):
+                    sname = os.path.join(save_path, dat)
+                    cname = os.path.join(w_path, dat)
+                    # @todo replace with flow_from_dataframe
+                    shutil.copyfile(cname, sname)
+
+                n += 1
+
+        # same code but for susceptible wells
+        sus_names = sus_wells.get(e)
+
+        for w in sus_names:
+
+            well_names = []
+
+            for well in listdir_nods(e_path):
+                if well == 'testing':
+                    pass
+                elif re.split('-', well)[1].strip().startswith(w):
+                    well_names.append(well)
+
+            rarr = np.linspace(1, len(well_names), num=len(well_names) - 1).tolist()
+            random.shuffle(rarr)
+
+            test_ns = []
+            valid_ns = []
+
+            for i in range(math.ceil(tprob * len(sus_names))):
+                test_ns.append(rarr.pop())
+
+            for i in range(math.ceil(vprob * len(sus_names))):
+                valid_ns.append(rarr.pop())
+
+            n = 1
+            for name in well_names:
+                w_path = os.path.join(e_path, name)
+
+                if n in test_ns:
+                    save_path = os.path.join(os.path.join(save_dir, 'test'), 'Sus')
+                elif n in valid_ns:
+                    save_path = os.path.join(os.path.join(save_dir, 'valid'), 'Sus')
+                else:
+
+                    save_path = os.path.join(os.path.join(save_dir, 'train'), 'Sus')
+
+                for dat in listdir_nods(w_path):
+                    sname = os.path.join(save_path, dat)
+                    cname = os.path.join(w_path, dat)
+
+                    shutil.copyfile(cname, sname)
+
+                n += 1
+
 
 # uses saved .npy array to color cells based on model prediction
 def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: str, model):
