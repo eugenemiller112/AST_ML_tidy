@@ -108,9 +108,9 @@ def segment(frame_in, **kwargs):
     s = frame_in.shape
     cropped = frame_in[kwargs['crop']:s[0] - kwargs['crop'], kwargs['crop']:s[1] - kwargs['crop']]
 
-    lab = skimage.filters.threshold_local(cropped, block_size=11).astype(np.uint16)
+    lab = skimage.filters.threshold_local(cropped, block_size=kwargs['block_size']).astype(np.uint16)
     lab = skimage.morphology.label(lab)
-    lab = skimage.morphology.remove_small_objects(lab, min_size=10)
+    lab = skimage.morphology.remove_small_objects(lab, min_size=kwargs['min_size'])
 
     segmented_frame = np.zeros(s)
     disk_inds = []
@@ -174,18 +174,18 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
         # Only normalize segmentation video to make processing easier.
         seg_video = normalize(seg_load)
 
-        seg_video, keys = jitter_correct(seg_video, lag=5, crop=100, upsample=100, test_jitter=False)
+        seg_video, keys = jitter_correct(seg_video, lag=3, crop=100, upsample=100, test_jitter=False)
         dat_video = apply_jitter_correct(dat_load, keys)
 
         if test_jitter:
-            path = os.path.join(os.path.join(save_path, 'testing'), 'video.tif')
+            path = os.path.join(os.path.join(save_path, 'testing'), 'test_video.tif')
             print("See test video here:")
             print(path)
             tiff.imwrite(path, seg_video)
             return
 
-        seg, inds = segment(seg_video[0, :, :], crop=200, min_sigma=5, max_sigma=20, num_sigma=50,
-                            threshold=0.00001, overlap=0, radius=5)
+        seg, inds = segment(seg_video[5, :, :], crop=200, min_sigma=1, max_sigma=50, num_sigma=50,
+                            threshold=0.001, overlap=0, radius=5, min_size=0, block_size=5)
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
@@ -194,12 +194,12 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
                 n += 1
 
         if test_seg:
-            path = os.path.join(os.path.join(save_path, 'testing'), 'segment')
+            path = os.path.join(os.path.join(save_path, 'testing'), 'test_segment.png')
             plt.imshow(seg)
             plt.show()
             print("See test segmentation here:")
             print(path)
-            cv2.imwrite(path + '.png', seg)
+            cv2.imwrite(path, seg)
             return
 
         if inds.ndim == 1:
@@ -226,7 +226,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
 
 def well_select(source_dir: str, dest_dir: str, row: str):
     for folder in listdir_nods(source_dir):
-        if folder.endswith('testing'):
+        if folder == 'testing' or folder == 'segmentations':
             continue
         if re.split("-", folder)[1].strip().startswith(row):
             folder_path = os.path.join(source_dir, folder)

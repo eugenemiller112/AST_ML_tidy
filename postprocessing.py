@@ -31,15 +31,15 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
         e_path = os.path.join(os.path.join(data_dir, e), 'processed')
 
         res_names = res_wells.get(e)  # get names of resistant wells
-
+        print(e)
         for w in res_names:
 
             well_names = []  # arr to save paths
 
             for well in listdir_nods(e_path):
-
-                if well == 'testing':  # skip segmentations dir
+                if well == 'testing' or well == 'segmentations':  # skip segmentations dir
                     pass
+
                 elif re.split('-', well)[1].strip().startswith(w):  # check for
                     well_names.append(well)  # save path of well
 
@@ -85,7 +85,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
             well_names = []
 
             for well in listdir_nods(e_path):
-                if well == 'testing':
+                if well == 'testing' or well == 'segmentations':
                     pass
                 elif re.split('-', well)[1].strip().startswith(w):
                     well_names.append(well)
@@ -177,3 +177,78 @@ def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: st
 
     # save
     cv2.imwrite(uri=os.path.join(img_save_dest, img_save_name + 'preds_visualized.png'), im=color.astype(np.uint16))
+
+
+# uses saved .npy array to color cells based on model prediction
+def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: str, model):
+    # find path and name
+    img_save_dest = os.path.split(path_to_seg_img)[0]
+    img_save_name = os.path.split(path_to_seg_img)[1]
+
+    arr = np.load(path_to_seg_arr)  # load segmentation array
+    im = Image.open(path_to_seg_img)  # open segmentation image
+    color = cv2.cvtColor(np.asarray(im), cv2.COLOR_GRAY2RGB)  # turn to rgb in order to color
+
+    paths = listdir_nods(path_to_data)
+    paths.sort(key=natural_keys)
+
+    n = 0  # coordinates segmentation arrays with data images (seg array 0 == data 0, seg array 1 == data 1, ...)
+    for path in paths:
+
+        # Labels:
+        # Res = 0
+        # Sus = 1
+
+        i = np.asarray(Image.open(os.path.join(path_to_data, path)))  # image to be predicted
+        print(i.shape)
+
+        # some processing to get the model to take it
+        i = np.expand_dims(i, axis=2)
+        i = i[np.newaxis, :]
+        print(i.shape)
+
+        # predict on model
+        pred = model.predict(i)
+
+        # points to be colored
+        subset = np.vstack(arr[n]).T
+
+        # color the points
+        if pred > 0.5:
+            for point in subset:
+                # Sus = red
+                color[point[0], point[1]][0] = 255
+                color[point[0], point[1]][1] = 0
+                color[point[0], point[1]][2] = 0
+
+        else:
+            for point in subset:
+                # Res = green
+                color[point[0], point[1]][1] = 255
+                color[point[0], point[1]][0] = 0
+                color[point[0], point[1]][2] = 0
+
+        n += 1
+    print(color.shape)
+
+    # save
+    cv2.imwrite(os.path.join(img_save_dest, img_save_name + 'preds_visualized.png'), color)
+
+
+# wrapper for color_seg_preds that works iteratively
+def color_all_preds(exp_dir: str, model):
+    for exp in listdir_nods(exp_dir):
+
+        exp_path = os.path.join(exp_dir, exp)
+
+        seg_dir = os.path.join(exp_path, 'segmentations')
+
+        well_list = listdir_nods(exp_path)
+        well_list.remove('segmentations')
+
+        for well in well_list:
+            well_path = os.path.join(exp_path, well)
+
+            color_seg_preds(os.path.join(seg_dir, well[:len(well) - 5]) + '.npy',
+                            os.path.join(seg_dir, well[:len(well) - 5]) + '1.tif.png',
+                            well_path, model)

@@ -1,6 +1,7 @@
+from __future__ import print_function
 import os
 from preprocessing import listdir_nods
-from __future__ import print_function
+
 
 import tensorflow as tf
 
