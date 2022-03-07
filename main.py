@@ -1,13 +1,19 @@
 from preprocessing import *
 from postprocessing import *
 from model import *
+import csv
+import time
+
+
+def main():
+    titration_pred(save_path='/Users/eugenemiller/Desktop/Lab/824Kan',
+                   model_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/model',
+                   csv_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/0ug25ugtrain_on_BW.csv')
+
+    titration_pred(save_path='/Users/eugenemiller/Desktop/Lab/0112Kan_Data',
+                   model_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/model',
+                   csv_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/0ug25ugtrain_on_MNTH.csv')
+
 
 if __name__ == '__main__':
-
-    #process('/Volumes/External/20210824_bwkan_titration', 1, 0, False, False)
-    #process('/Volumes/External/20210721_bwkan_titration', 1, 0, False, False)
-    process('/Volumes/External/20210720_bwkan_titration', 1, 0, True, False)
-
-    #process('/Volumes/External/20210803_1to1mixed_kantitration', 1, 0)
-
-    #process('/Volumes/External/20210806_mnthkan_titration', 1, 0)
+    main()

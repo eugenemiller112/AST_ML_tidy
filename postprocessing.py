@@ -5,8 +5,12 @@ import cv2
 import PIL as Image
 import shutil
 import random, math
+import csv
+import tensorflow as tf
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 
+# todo make shuffle work by experiment, not by well
 def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus_wells: dict):
     if os.path.exists(save_dir):
         shutil.rmtree(save_dir)
@@ -32,6 +36,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
 
         res_names = res_wells.get(e)  # get names of resistant wells
         print(e)
+        rintlist = []
         for w in res_names:
 
             well_names = []  # arr to save paths
@@ -70,9 +75,13 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
                     save_path = os.path.join(os.path.join(save_dir, 'train'), 'Res')
 
                 for dat in listdir_nods(w_path):
-                    sname = os.path.join(save_path, dat)
+                    r = random.randint(1000000000, 9999999999)
+                    while r in rintlist:
+                        r = random.randint(1000000000, 9999999999)
+                    rintlist.append(r)
+                    sname = os.path.join(save_path, str(r) + '.png')
                     cname = os.path.join(w_path, dat)
-                    # @todo replace with flow_from_dataframe
+                    # todo replace with flow_from_dataframe
                     shutil.copyfile(cname, sname)
 
                 n += 1
@@ -115,7 +124,11 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
                     save_path = os.path.join(os.path.join(save_dir, 'train'), 'Sus')
 
                 for dat in listdir_nods(w_path):
-                    sname = os.path.join(save_path, dat)
+                    r = random.randint(1000000000, 9999999999)
+                    while r in rintlist:
+                        r = random.randint(1000000000, 9999999999)
+                    rintlist.append(r)
+                    sname = os.path.join(save_path, str(r) + '.png')
                     cname = os.path.join(w_path, dat)
 
                     shutil.copyfile(cname, sname)
@@ -252,3 +265,54 @@ def color_all_preds(exp_dir: str, model):
             color_seg_preds(os.path.join(seg_dir, well[:len(well) - 5]) + '.npy',
                             os.path.join(seg_dir, well[:len(well) - 5]) + '1.tif.png',
                             well_path, model)
+
+
+def titration_pred(save_path: str, model_path: str, csv_path: str):
+    PATH = save_path
+
+    model = tf.keras.models.load_model(model_path)
+
+    image_gen = ImageDataGenerator(rescale=1 / 255)
+    c = image_gen.flow_from_directory(PATH, target_size=(120, 69), color_mode='grayscale',
+                                      batch_size=1, class_mode='sparse', shuffle=False)
+
+    d = {
+        0: [],
+        1: [],
+        2: [],
+        3: [],
+        4: [],
+        5: []
+    }
+
+    to_save = {
+        'label': [],
+        'prediction': []
+    }
+
+    n = 0
+    print(len(c.__iter__()))
+    for i in c.__iter__():
+        if n > len(c.__iter__()):
+            break
+        pred = model.predict(i[0])[0][0]
+        d[int(i[1][0])].append(pred)
+        to_save['label'].append(int(i[1][0]))
+        to_save['prediction'].append(pred)
+        n += 1
+
+    meanarr = []
+    upperq = []
+    lowerq = []
+    # for k in d:
+    # upperq.append(np.quantile(d[k], .975))
+    # lowerq.append(np.quantile(d[k], .025))
+    # meanarr.append(np.mean(d[k]))
+    # print(k, lowerq[k], meanarr[k], upperq[k])
+    print(c.class_indices)
+
+    with open(csv_path, 'w') as file:
+        writer = csv.writer(file, )
+        writer.writerow(['label', 'prediction'])
+        for i in range(len(to_save['label'])):
+            writer.writerow([to_save['label'][i], to_save['prediction'][i]])

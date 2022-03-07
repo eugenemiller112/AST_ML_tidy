@@ -79,7 +79,7 @@ def jitter_correct(video, **kwargs):
 
             alignment[n, :, :] = cg_transformed
             save[n, :, :] = transformed
-        print(tuple(shift))
+       # print(tuple(shift))
         return alignment, save, tuple(shift)
 
     shift_arr = []
@@ -87,7 +87,7 @@ def jitter_correct(video, **kwargs):
         alignment, save, shift = loop(video[n, :, :], alignment, save, n)
         shift_arr.append([shift[0], shift[1]])
 
-    print(shift_arr)
+    #print(shift_arr)
     return save, shift_arr
 
 
@@ -96,7 +96,7 @@ def apply_jitter_correct(video, shift_arr):
     save = np.empty((video.shape[0], video.shape[1], video.shape[2])).astype(np.uint16)
 
     for i in range(video.shape[0]):
-        print(shift_arr[i])
+        #print(shift_arr[i])
         transform = np.asarray(
             imr.imreg.transform_img(video[i, :, :], mode='nearest', tvec=shift_arr[i]))
         save[i, :, :] = transform
@@ -139,11 +139,11 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
     save_path = os.path.join(data_path, 'processed')
 
     if not os.path.exists(save_path):
-        print("Save directory not found. Partitioning...")
+        #print("Save directory not found. Partitioning...")
         os.mkdir(save_path)
         os.mkdir(os.path.join(save_path, 'segmentations'))
         os.mkdir(os.path.join(save_path, 'testing'))
-        print("Done")
+        #print("Done")
 
     # Create a list of video names
     vlist = []
@@ -158,8 +158,6 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
 
         dat_suffix = 'C' + str(dat_channel) + '.tif'
         seg_suffix = 'C' + str(seg_channel) + '.tif'
-
-        print("Now processing", v)
 
         vsave = os.path.join(save_path, v + dat_suffix)
         if not os.path.exists(vsave):
@@ -184,8 +182,8 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
             tiff.imwrite(path, seg_video)
             return
 
-        seg, inds = segment(seg_video[5, :, :], crop=200, min_sigma=1, max_sigma=50, num_sigma=50,
-                            threshold=0.001, overlap=0, radius=5, min_size=0, block_size=5)
+        seg, inds = segment(seg_video[5, :, :], crop=200, min_sigma=10, max_sigma=50, num_sigma=50,
+                            threshold=.000001, overlap=0, radius=5, min_size=30, block_size=3)
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
@@ -203,12 +201,9 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
             return
 
         if inds.ndim == 1:
-            print("Segmentation Error")
             continue
 
         save_arr = np.empty((len(inds), dat_video.shape[0], len(inds[0, 0])))
-        print(dat_video.shape[0])
-        print(len(inds))
 
         for nframe in range(dat_video.shape[0]):
             loaded = dat_video[nframe, :, :]
@@ -217,7 +212,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
 
         for a in range(save_arr.shape[0]):
             fsave = os.path.join(vsave, str(a) + '.png')
-            print(fsave)
+            #print(fsave)
             cv2.imwrite(filename=fsave, img=save_arr[a, :, :].astype(np.uint16))
 
     print("Done Processing, saved in:")
