@@ -266,16 +266,18 @@ def color_all_preds(exp_dir: str, model):
                             os.path.join(seg_dir, well[:len(well) - 5]) + '1.tif.png',
                             well_path, model)
 
-
+# predictions for multiple concentrations of drug in same experiment.
 def titration_pred(save_path: str, model_path: str, csv_path: str):
     PATH = save_path
 
+    # get the model
     model = tf.keras.models.load_model(model_path)
 
     image_gen = ImageDataGenerator(rescale=1 / 255)
     c = image_gen.flow_from_directory(PATH, target_size=(120, 69), color_mode='grayscale',
                                       batch_size=1, class_mode='sparse', shuffle=False)
 
+    # @TODO Change this from hardcoded to a parameter
     d = {
         0: [],
         1: [],
@@ -290,6 +292,7 @@ def titration_pred(save_path: str, model_path: str, csv_path: str):
         'prediction': []
     }
 
+    # loop through data and generate predictions
     n = 0
     print(len(c.__iter__()))
     for i in c.__iter__():
@@ -301,6 +304,7 @@ def titration_pred(save_path: str, model_path: str, csv_path: str):
         to_save['prediction'].append(pred)
         n += 1
 
+    # summary statistics
     meanarr = []
     upperq = []
     lowerq = []
@@ -311,6 +315,7 @@ def titration_pred(save_path: str, model_path: str, csv_path: str):
     # print(k, lowerq[k], meanarr[k], upperq[k])
     print(c.class_indices)
 
+    # write to CSV
     with open(csv_path, 'w') as file:
         writer = csv.writer(file, )
         writer.writerow(['label', 'prediction'])

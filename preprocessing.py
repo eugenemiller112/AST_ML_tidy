@@ -22,6 +22,7 @@ def natural_keys(text):
     return [f(text)]
 
 
+# Avoids .ds files for MacOS
 def listdir_nods(path):
     lst = os.listdir(path)
     if '.DS_Store' in lst:
@@ -79,7 +80,7 @@ def jitter_correct(video, **kwargs):
 
             alignment[n, :, :] = cg_transformed
             save[n, :, :] = transformed
-       # print(tuple(shift))
+        # print(tuple(shift))
         return alignment, save, tuple(shift)
 
     shift_arr = []
@@ -87,7 +88,7 @@ def jitter_correct(video, **kwargs):
         alignment, save, shift = loop(video[n, :, :], alignment, save, n)
         shift_arr.append([shift[0], shift[1]])
 
-    #print(shift_arr)
+    # print(shift_arr)
     return save, shift_arr
 
 
@@ -96,7 +97,7 @@ def apply_jitter_correct(video, shift_arr):
     save = np.empty((video.shape[0], video.shape[1], video.shape[2])).astype(np.uint16)
 
     for i in range(video.shape[0]):
-        #print(shift_arr[i])
+        # print(shift_arr[i])
         transform = np.asarray(
             imr.imreg.transform_img(video[i, :, :], mode='nearest', tvec=shift_arr[i]))
         save[i, :, :] = transform
@@ -104,10 +105,13 @@ def apply_jitter_correct(video, shift_arr):
     return save
 
 
+# segments a single frame
 def segment(frame_in, **kwargs):
     s = frame_in.shape
+    # crop the image (to avoid border issues)
     cropped = frame_in[kwargs['crop']:s[0] - kwargs['crop'], kwargs['crop']:s[1] - kwargs['crop']]
 
+    # use skimage to create the filter
     lab = skimage.filters.threshold_local(cropped, block_size=kwargs['block_size']).astype(np.uint16)
     lab = skimage.morphology.label(lab)
     lab = skimage.morphology.remove_small_objects(lab, min_size=kwargs['min_size'])
@@ -115,6 +119,7 @@ def segment(frame_in, **kwargs):
     segmented_frame = np.zeros(s)
     disk_inds = []
 
+    # centroid the segmented areas to extract traces
     regions = regionprops(lab)
     for region in regions:
         c = region.centroid
@@ -139,11 +144,11 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
     save_path = os.path.join(data_path, 'processed')
 
     if not os.path.exists(save_path):
-        #print("Save directory not found. Partitioning...")
+        # print("Save directory not found. Partitioning...")
         os.mkdir(save_path)
         os.mkdir(os.path.join(save_path, 'segmentations'))
         os.mkdir(os.path.join(save_path, 'testing'))
-        #print("Done")
+        # print("Done")
 
     # Create a list of video names
     vlist = []
@@ -172,9 +177,11 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
         # Only normalize segmentation video to make processing easier.
         seg_video = normalize(seg_load)
 
+        # call segmentation
         seg_video, keys = jitter_correct(seg_video, lag=3, crop=100, upsample=100, test_jitter=False)
         dat_video = apply_jitter_correct(dat_load, keys)
 
+        # display sample video if testing parameters
         if test_jitter:
             path = os.path.join(os.path.join(save_path, 'testing'), 'test_video.tif')
             print("See test video here:")
@@ -182,6 +189,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
             tiff.imwrite(path, seg_video)
             return
 
+        # call segmentation (@TODO Change to **kwargs)
         seg, inds = segment(seg_video[5, :, :], crop=200, min_sigma=10, max_sigma=50, num_sigma=50,
                             threshold=.000001, overlap=0, radius=5, min_size=30, block_size=3)
 
@@ -191,6 +199,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
                 np.save(os.path.join(os.path.join(save_path, 'segmentations'), str(n) + '.np'), str(i))
                 n += 1
 
+        # example segmentation for messing with parameters
         if test_seg:
             path = os.path.join(os.path.join(save_path, 'testing'), 'test_segment.png')
             plt.imshow(seg)
@@ -203,8 +212,10 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
         if inds.ndim == 1:
             continue
 
+        # array that data will be saved into.
         save_arr = np.empty((len(inds), dat_video.shape[0], len(inds[0, 0])))
 
+        # get the data from the videos
         for nframe in range(dat_video.shape[0]):
             loaded = dat_video[nframe, :, :]
             for s in range(len(inds)):
@@ -212,13 +223,14 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
 
         for a in range(save_arr.shape[0]):
             fsave = os.path.join(vsave, str(a) + '.png')
-            #print(fsave)
+            # print(fsave)
             cv2.imwrite(filename=fsave, img=save_arr[a, :, :].astype(np.uint16))
 
     print("Done Processing, saved in:")
     print(data_path)
 
 
+# Select a single well from source to dest.
 def well_select(source_dir: str, dest_dir: str, row: str):
     for folder in listdir_nods(source_dir):
         if folder == 'testing' or folder == 'segmentations':
@@ -230,9 +242,7 @@ def well_select(source_dir: str, dest_dir: str, row: str):
                 file_copy_path = os.path.join(dest_dir, folder + file)
                 shutil.copy(file_source_path, file_copy_path)
 
-
+# select multiple wells
 def well_select_2000(source_dir: str, dest_dir: str, rows):
     for row in rows:
         well_select(source_dir, dest_dir, str(row))
-
-

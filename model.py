@@ -42,6 +42,7 @@ if tf.config.list_physical_devices('GPU'):
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
+# generate a CNN based off of provided data directories
 @tf.autograph.experimental.do_not_convert
 def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, input_shape=(120, 69, 1),
                  do_data_augmentation=False):
@@ -110,6 +111,7 @@ def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
 
     return model, test_image_gen, history
 
+# Generate a CNN and plot the ROC curve
 def generate_roc_CNN(train_dir: str, valid_dir : str, test_dir: str, modsave_path: str):
     tpr_values = []
     fpr_values = []

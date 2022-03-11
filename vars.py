@@ -1,3 +1,4 @@
+# commonly used experiments/paths for ease
 exp_list = ['20210609_cytox_preculture_run2', '20210609_cytox_preculture_run1',
                 '20210610_cytox_preculture_run2', '20210610_cytox_preculture_run1',
                 '20210611_cytox_preculture_run2', '20210611_cytox_preculture_run1']
