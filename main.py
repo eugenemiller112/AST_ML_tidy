@@ -6,13 +6,22 @@ import time
 
 
 def main():
-    titration_pred(save_path='/Users/eugenemiller/Desktop/Lab/824Kan',
-                   model_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/model',
-                   csv_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/0ug25ugtrain_on_BW.csv')
+    jitter_settings = {'lag': 3,
+                       'crop': 100,
+                       'upsample': 100}
 
-    titration_pred(save_path='/Users/eugenemiller/Desktop/Lab/0112Kan_Data',
-                   model_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/model',
-                   csv_path='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/0ug25ugtrain_on_MNTH.csv')
+    seg_settings = {'crop': 200,
+                    'min_sigma': 10,
+                    'max_sigma': 50,
+                    'num_sigma': 50,
+                    'threshold': .000001,
+                    'overlap': 0,
+                    'radius': 5,
+                    'min_size': 30,
+                    'block_size': 3}
+
+    process('/Users/eugenemiller/Desktop/Lab/3-25-22 KanTitration', 1, 0, seg_settings=seg_settings,
+            jitter_settings=jitter_settings, test_jitter=True, test_seg=True)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import cv2
+import imageio
 import imreg_dft as imr
 import numpy as np
 import skimage
@@ -139,7 +140,8 @@ def normalize(video):
 
 
 # Oneshot Preprocessing
-def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=False, test_seg=False):
+def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: dict, jitter_settings: dict,
+            test_jitter=False, test_seg=False):
     paths = listdir_nods(data_path)
     save_path = os.path.join(data_path, 'processed')
 
@@ -178,7 +180,8 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
         seg_video = normalize(seg_load)
 
         # call segmentation
-        seg_video, keys = jitter_correct(seg_video, lag=3, crop=100, upsample=100, test_jitter=False)
+        seg_video, keys = jitter_correct(seg_video, seg_settings['lag'], seg_settings['crop'], seg_settings['upsample'],
+                                         test_jitter=False)
         dat_video = apply_jitter_correct(dat_load, keys)
 
         # display sample video if testing parameters
@@ -189,9 +192,11 @@ def process(data_path: str, seg_channel: int, dat_channel: int, test_jitter=Fals
             tiff.imwrite(path, seg_video)
             return
 
-        # call segmentation (@TODO Change to **kwargs)
-        seg, inds = segment(seg_video[5, :, :], crop=200, min_sigma=10, max_sigma=50, num_sigma=50,
-                            threshold=.000001, overlap=0, radius=5, min_size=30, block_size=3)
+        # call segmentation
+        seg, inds = segment(seg_video[5, :, :], jitter_settings['crop'], jitter_settings['min_sigma'],
+                            jitter_settings['max_sigma'], jitter_settings['num_sigma'],
+                            jitter_settings['threshold'], jitter_settings['overlap'], jitter_settings['radius'],
+                            jitter_settings['min_size'], jitter_settings['block_size'])
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
@@ -242,7 +247,26 @@ def well_select(source_dir: str, dest_dir: str, row: str):
                 file_copy_path = os.path.join(dest_dir, folder + file)
                 shutil.copy(file_source_path, file_copy_path)
 
+
 # select multiple wells
 def well_select_2000(source_dir: str, dest_dir: str, rows):
     for row in rows:
         well_select(source_dir, dest_dir, str(row))
+
+
+# @TODO add labels
+# reads in images and converts to a tensor of (Xdim x Ydim x Nimages x label)
+def images_to_tensors(source_dir: str, xdim: int, ydim: int, label: int):
+    list_files = listdir_nods(source_dir)
+    tensor = np.zeros((xdim, ydim, len(list_files)))  # declare a save array
+    labels = np.zeros(len(list_files))  # declare label array
+
+    labels[:] = label  # add the label
+
+    counter = 0
+    for image in listdir_nods(source_dir):
+        im = np.asarray(imageio.imread(os.path.join(source_dir, image)))  # load image
+        tensor[:, :, counter, :] = im  # push to tensor
+        counter += 1
+
+    return tensor, labels  # return tensor

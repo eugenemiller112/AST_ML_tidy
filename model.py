@@ -2,8 +2,9 @@ from __future__ import print_function
 import os
 from preprocessing import listdir_nods
 
-
 import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -111,15 +112,16 @@ def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
 
     return model, test_image_gen, history
 
+
 # Generate a CNN and plot the ROC curve
-def generate_roc_CNN(train_dir: str, valid_dir : str, test_dir: str, modsave_path: str):
+def generate_roc_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path: str):
     tpr_values = []
     fpr_values = []
     roc_scores = []
 
     p = listdir_nods(train_dir)
 
-    #size = np.asarray(Image.open(p[0])).shape
+    # size = np.asarray(Image.open(p[0])).shape
 
     # figure out relative proportions of each class and calculate the appropriate bias
     classcount = []
@@ -136,17 +138,18 @@ def generate_roc_CNN(train_dir: str, valid_dir : str, test_dir: str, modsave_pat
 
     for i in range(5):
 
-        mod, test_gen, history = generate_cnn(train_dir=train_dir, val_dir=valid_dir, test_dir=test_dir, class_weight=class_weight)
+        mod, test_gen, history = generate_cnn(train_dir=train_dir, val_dir=valid_dir, test_dir=test_dir,
+                                              class_weight=class_weight)
 
-        #print(type(mod))
+        # print(type(mod))
         y_binary = test_gen.classes
 
         ### Model Metrics
         scores = mod.predict_proba(test_gen, verbose=1)
-        #print(scores)
-        #print(len(np.unique(scores)))
-        #print(len(scores))
-        #print(len(y_binary))
+        # print(scores)
+        # print(len(np.unique(scores)))
+        # print(len(scores))
+        # print(len(y_binary))
 
         preds = []
         for j in range(len(scores)):
@@ -163,11 +166,11 @@ def generate_roc_CNN(train_dir: str, valid_dir : str, test_dir: str, modsave_pat
                     preds.append(1)
                     continue
                 preds.append(0)
-            #print(thresh)
-            #print(confusion_matrix(y_binary, preds))
+            # print(thresh)
+            # print(confusion_matrix(y_binary, preds))
             preds = np.asarray(preds)
-            #print(y_binary)
-            #print(preds)
+            # print(y_binary)
+            # print(preds)
             tn, fp, fn, tp = confusion_matrix(y_binary, preds).ravel()
             tpr = tp / (tp + fn)
             fpr = fp / (fp + tn)
@@ -203,3 +206,23 @@ def generate_roc_CNN(train_dir: str, valid_dir : str, test_dir: str, modsave_pat
     plt.show()
 
     tf.saved_model.save(best, modsave_path)
+
+
+def generate_RNN(train_dir: str, val_dir: str, test_dir: str, class_weight, input_shape=(120, 69, 1),
+                 do_data_augmentation=False):
+
+    train_data = images_to_tensors(source_dir=train_dir)
+    val_data = images_to_tensors(source_dir=val_dir)
+    test_data = images_to_tensors(source_dir=test_dir)
+
+    model = keras.Sequential()
+    model.add(layers.Embedding(input_dim=1000, output_dim=64))
+
+    # The output of GRU will be a 3D tensor of shape (batch_size, timesteps, 256)
+    model.add(layers.GRU(256, return_sequences=True))
+
+    # The output of SimpleRNN will be a 2D tensor of shape (batch_size, 128)
+    model.add(layers.SimpleRNN(128))
+
+    model.add(layers.Dense(2, activation='sigmoid'))
+
