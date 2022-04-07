@@ -180,7 +180,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
         seg_video = normalize(seg_load)
 
         # call segmentation
-        seg_video, keys = jitter_correct(seg_video, seg_settings['lag'], seg_settings['crop'], seg_settings['upsample'],
+        seg_video, keys = jitter_correct(seg_video, lag=jitter_settings['lag'], crop=jitter_settings['crop'], upsample=jitter_settings['upsample'],
                                          test_jitter=False)
         dat_video = apply_jitter_correct(dat_load, keys)
 
@@ -193,10 +193,10 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
             return
 
         # call segmentation
-        seg, inds = segment(seg_video[5, :, :], jitter_settings['crop'], jitter_settings['min_sigma'],
-                            jitter_settings['max_sigma'], jitter_settings['num_sigma'],
-                            jitter_settings['threshold'], jitter_settings['overlap'], jitter_settings['radius'],
-                            jitter_settings['min_size'], jitter_settings['block_size'])
+        seg, inds = segment(seg_video[5, :, :], crop=jitter_settings['crop'], min_sigma=jitter_settings['min_sigma'],
+                            max_sigma=jitter_settings['max_sigma'], num_sigma=jitter_settings['num_sigma'],
+                            threshold=jitter_settings['threshold'], overlap=jitter_settings['overlap'], radius=jitter_settings['radius'],
+                            min_size=jitter_settings['min_size'], block_size=jitter_settings['block_size'])
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0

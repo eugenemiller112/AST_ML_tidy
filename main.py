@@ -20,7 +20,7 @@ def main():
                     'min_size': 30,
                     'block_size': 3}
 
-    process('/Users/eugenemiller/Desktop/Lab/3-25-22 KanTitration', 1, 0, seg_settings=seg_settings,
+    process('/Volumes/External/20220325_KanTitration', 1, 0, seg_settings=seg_settings,
             jitter_settings=jitter_settings, test_jitter=True, test_seg=True)
 
 
