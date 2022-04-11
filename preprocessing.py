@@ -7,6 +7,7 @@ import imreg_dft as imr
 import numpy as np
 import skimage
 import tifffile as tiff
+import matplotlib.pyplot as plt
 from skimage import filters
 from skimage.draw import disk
 from skimage.measure import regionprops
@@ -14,12 +15,11 @@ from skimage.registration import phase_cross_correlation
 
 print(skimage.__version__)
 
-import matplotlib.pyplot as plt
-
 
 # Utility functions
 def natural_keys(text):
     f = (lambda x: int(x) if x.isdigit else 0)
+
     return [f(text)]
 
 
@@ -39,16 +39,19 @@ def listdir_nods(path):
 
 # Data processing utilities
 def jitter_correct(video, **kwargs):
+    # get the params
     lag = kwargs['lag']
     crop = kwargs['crop']
     upsample = kwargs['upsample']
     test_jitter = kwargs['test_jitter']
 
+    # define arrays to be filled (these are images)
     alignment = np.empty((video.shape[0], video.shape[1] - 2 * crop, video.shape[2] - 2 * crop)).astype(np.uint16)
-
     save = np.empty((video.shape[0], video.shape[1], video.shape[2])).astype(np.uint16)
 
+    # the correction loop
     def loop(frame, alignment, save, n: int = 0):
+
         i = np.asarray(frame).astype(np.uint16)
 
         i_gauss = np.asarray(skimage.filters.gaussian(i, preserve_range=True))
@@ -62,7 +65,7 @@ def jitter_correct(video, **kwargs):
             shift = tuple([0, 0])
 
         else:
-            if n > lag:
+            if n > lag:  # lob off the lag
                 bound = n - lag
             else:
                 bound = 0
@@ -70,7 +73,9 @@ def jitter_correct(video, **kwargs):
                                                             i_cropped_gauss,
                                                             upsample_factor=upsample)  # calculate the drifts
 
-            if test_jitter: print(err)
+            if test_jitter:
+                print("error", err)
+                print("shift", shift)
 
             # transform image based on the drift
             cg_transformed = np.asarray(
@@ -81,7 +86,7 @@ def jitter_correct(video, **kwargs):
 
             alignment[n, :, :] = cg_transformed
             save[n, :, :] = transformed
-        # print(tuple(shift))
+
         return alignment, save, tuple(shift)
 
     shift_arr = []
@@ -89,16 +94,14 @@ def jitter_correct(video, **kwargs):
         alignment, save, shift = loop(video[n, :, :], alignment, save, n)
         shift_arr.append([shift[0], shift[1]])
 
-    # print(shift_arr)
     return save, shift_arr
 
 
-# TODO Check functionality.
+# apply the jitter correction to many videos (if taken in the same experiment, save processing time)
 def apply_jitter_correct(video, shift_arr):
     save = np.empty((video.shape[0], video.shape[1], video.shape[2])).astype(np.uint16)
 
     for i in range(video.shape[0]):
-        # print(shift_arr[i])
         transform = np.asarray(
             imr.imreg.transform_img(video[i, :, :], mode='nearest', tvec=shift_arr[i]))
         save[i, :, :] = transform
@@ -136,6 +139,7 @@ def normalize(video):
     mean = np.mean(video, axis=0)
     blurr = skimage.filters.gaussian(mean, sigma=(100, 100))
     video = np.divide(video, blurr)
+
     return video
 
 
@@ -240,10 +244,14 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
 # Select a single well from source to dest.
 def row_select(source_dir: str, dest_dir: str, row: str):
     for folder in listdir_nods(source_dir):
+
         if folder == 'testing' or folder == 'segmentations':
             continue
+
         if re.split("-", folder)[1].strip().startswith(row):
+
             folder_path = os.path.join(source_dir, folder)
+
             for file in listdir_nods(folder_path):
                 file_source_path = os.path.join(folder_path, file)
                 file_copy_path = os.path.join(dest_dir, folder + file)
@@ -256,7 +264,6 @@ def row_select_2000(source_dir: str, dest_dir: str, rows):
         row_select(source_dir, dest_dir, str(row))
 
 
-# @TODO add labels
 # reads in images and converts to a tensor of (Xdim x Ydim x Nimages x label)
 def images_to_tensors(source_dir: str, xdim: int, ydim: int, label: int):
     list_files = listdir_nods(source_dir)

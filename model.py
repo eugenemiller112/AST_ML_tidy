@@ -1,38 +1,23 @@
 from __future__ import print_function
-import os
-from preprocessing import listdir_nods
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
-import numpy as np
-import matplotlib.pyplot as plt
-# import seaborn as sns
-
-from PIL import Image
-
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_auc_score
-from scipy.stats import gaussian_kde
-
 from preprocessing import *
-
-import os
 
 # Either or, just change syntax
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.optimizers import *
 
 import numpy as np
 
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.metrics import accuracy_score
 
-import sys, os, re, random, math
+import os
 
 print("TF version:", tf.__version__)
 
@@ -47,6 +32,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 @tf.autograph.experimental.do_not_convert
 def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, input_shape=(120, 69, 1),
                  do_data_augmentation=False):
+
     tf.keras.backend.clear_session()
     tf.random.set_seed(1)
 
@@ -114,12 +100,12 @@ def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
 
 
 # Generate a CNN and plot the ROC curve
-def generate_roc_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path: str):
+def generate_ROC_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path: str, cross_validations: int,
+                     verbose=False):
+
     tpr_values = []
     fpr_values = []
     roc_scores = []
-
-    p = listdir_nods(train_dir)
 
     # size = np.asarray(Image.open(p[0])).shape
 
@@ -136,41 +122,54 @@ def generate_roc_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path
 
     class_weight = {0: biases[1], 1: biases[0]}
 
-    for i in range(5):
+    for i in range(cross_validations):
 
         mod, test_gen, history = generate_cnn(train_dir=train_dir, val_dir=valid_dir, test_dir=test_dir,
                                               class_weight=class_weight)
 
-        # print(type(mod))
-        y_binary = test_gen.classes
+        y_binary = test_gen.classes  # get ground truth
 
-        ### Model Metrics
+        # Model Metrics
         scores = mod.predict_proba(test_gen, verbose=1)
-        # print(scores)
-        # print(len(np.unique(scores)))
-        # print(len(scores))
-        # print(len(y_binary))
+        if verbose:
+            print("Scores")
+            print(scores)
+            print(len(np.unique(scores)))
+            print(len(scores))
+            print(len(y_binary))
 
         preds = []
         for j in range(len(scores)):
+
             if scores[j] > 0.5:
                 preds.append(0)
                 continue
+
             preds.append(1)
-        print(accuracy_score(y_true=y_binary, y_pred=preds))
+
+        if verbose:
+            print("Accuracy score")
+            print(accuracy_score(y_true=y_binary, y_pred=preds))
+
         roc_values = []
         for thresh in np.linspace(0, 1, 100):
             preds = []
+
             for k in range(len(scores)):
+
                 if scores[k] > thresh:
                     preds.append(1)
                     continue
+
                 preds.append(0)
-            # print(thresh)
-            # print(confusion_matrix(y_binary, preds))
+
+            if verbose:
+                print(thresh)
+                print(confusion_matrix(y_binary, preds))
+                print(y_binary)
+                print(preds)
+
             preds = np.asarray(preds)
-            # print(y_binary)
-            # print(preds)
             tn, fp, fn, tp = confusion_matrix(y_binary, preds).ravel()
             tpr = tp / (tp + fn)
             fpr = fp / (fp + tn)
@@ -179,22 +178,18 @@ def generate_roc_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path
 
         tpr_values.append(tpr_value)
         fpr_values.append(fpr_value)
-        roc = roc_auc_score(y_binary, scores)
+        roc = roc_auc_score(y_binary, scores)  # calculate ROC AUC
         if not roc_scores:
             best = mod
         elif roc > max(roc_scores):
             best = mod
         roc_scores.append(roc)
-
-    # pal1 = sns.color_palette("rainbow", 12)
-    # sns.set_palette(pal1)
+        if verbose:
+            print(roc_scores)
 
     fig, ax = plt.subplots(figsize=(5, 7))
-    ax.plot(fpr_values[0], tpr_values[0])
-    ax.plot(fpr_values[1], tpr_values[1])
-    ax.plot(fpr_values[2], tpr_values[2])
-    ax.plot(fpr_values[3], tpr_values[3])
-    ax.plot(fpr_values[4], tpr_values[4])
+    for j in range(cross_validations):
+        ax.plot(fpr_values[j], tpr_values[j])
     ax.plot(np.linspace(0, 1, 100),
             np.linspace(0, 1, 100),
             label='baseline',
@@ -202,7 +197,7 @@ def generate_roc_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path
     plt.ylabel('TPR', fontsize=16)
     plt.xlabel('FPR', fontsize=16)
     plt.legend(fontsize=12)
-    plt.title("ROC AUC:" + str(np.mean(roc_scores)))
+    plt.title("ROC AUC:" + str(np.max(roc_scores)))
     plt.show()
 
     tf.saved_model.save(best, modsave_path)
@@ -225,4 +220,3 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
     model.add(layers.SimpleRNN(128))
 
     model.add(layers.Dense(2, activation='sigmoid'))
-

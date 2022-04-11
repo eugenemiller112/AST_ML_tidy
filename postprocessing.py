@@ -1,17 +1,21 @@
-import os, re
-import numpy as np
-from preprocessing import natural_keys, listdir_nods
-import cv2
-import PIL as Image
-import shutil
-import random, math
 import csv
+import math
+import os
+import random
+import re
+import shutil
+import PIL as Image
+import cv2
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+from preprocessing import natural_keys, listdir_nods
 
 
 # todo make shuffle work by experiment, not by well
 def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus_wells: dict):
+
     if os.path.exists(save_dir):
         shutil.rmtree(save_dir)
 
@@ -34,7 +38,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
     for e in exp_list:
         e_path = os.path.join(os.path.join(data_dir, e), 'processed')
 
-        res_names = [res_wells.get(e)]  # get names of resistant wells
+        res_names = res_wells.get(e)  # get names of resistant wells
 
         rintlist = []
         for w in res_names:
@@ -47,7 +51,8 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
 
                 elif re.split('-', well)[1].strip().startswith(w):  # check for
                     well_names.append(well)  # save path of well
-
+            print(well_names)
+            print(w)
             rarr = np.linspace(1, len(well_names), num=len(well_names) - 1).tolist()
             random.shuffle(rarr)
 
@@ -55,10 +60,10 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
             valid_ns = []  # arr to save which wells will be in valid set
 
             # determine which of the paths will be in test, valid
-            for i in range(math.floor(tprob * len(res_names))):
+            for i in range(math.ceil(tprob * len(res_names))):
                 test_ns.append(rarr.pop())
 
-            for i in range(math.floor(vprob * len(res_names))):
+            for i in range(math.ceil(vprob * len(res_names))):
                 valid_ns.append(rarr.pop())
 
             # loop through and assign to correct directory (train, valid, or test)
@@ -87,7 +92,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
                 n += 1
 
         # same code but for susceptible wells
-        sus_names = [sus_wells.get(e)]
+        sus_names = sus_wells.get(e)
 
         for w in sus_names:
 
@@ -105,10 +110,10 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
             test_ns = []
             valid_ns = []
 
-            for i in range(math.floor(tprob * len(sus_names))):
+            for i in range(math.ceil(tprob * len(sus_names))):
                 test_ns.append(rarr.pop())
 
-            for i in range(math.floor(vprob * len(sus_names))):
+            for i in range(math.ceil(vprob * len(sus_names))):
                 valid_ns.append(rarr.pop())
 
             n = 1
@@ -138,6 +143,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
 
 # uses saved .npy array to color cells based on model prediction
 def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: str, model):
+
     # find path and name
     img_save_dest = os.path.split(path_to_seg_img)[0]
     img_save_name = os.path.split(path_to_seg_img)[1]
@@ -194,6 +200,7 @@ def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: st
 
 # uses saved .npy array to color cells based on model prediction
 def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: str, model):
+
     # find path and name
     img_save_dest = os.path.split(path_to_seg_img)[0]
     img_save_name = os.path.split(path_to_seg_img)[1]
@@ -250,6 +257,7 @@ def color_seg_preds(path_to_seg_arr: str, path_to_seg_img: str, path_to_data: st
 
 # wrapper for color_seg_preds that works iteratively
 def color_all_preds(exp_dir: str, model):
+
     for exp in listdir_nods(exp_dir):
 
         exp_path = os.path.join(exp_dir, exp)
@@ -268,7 +276,8 @@ def color_all_preds(exp_dir: str, model):
 
 
 # predictions for multiple concentrations of drug in same experiment.
-def titration_pred(save_path: str, model_path: str, csv_path: str):
+def titration_pred(save_path: str, model_path: str, csv_path: str, verbose = False):
+
     PATH = save_path
 
     # get the model
@@ -309,11 +318,16 @@ def titration_pred(save_path: str, model_path: str, csv_path: str):
     meanarr = []
     upperq = []
     lowerq = []
-    # for k in d:
-    # upperq.append(np.quantile(d[k], .975))
-    # lowerq.append(np.quantile(d[k], .025))
-    # meanarr.append(np.mean(d[k]))
-    # print(k, lowerq[k], meanarr[k], upperq[k])
+
+    for k in d:
+
+        upperq.append(np.quantile(d[k], .975))
+        lowerq.append(np.quantile(d[k], .025))
+        meanarr.append(np.mean(d[k]))
+
+        if verbose:
+            print(k, lowerq[k], meanarr[k], upperq[k])
+
     print(c.class_indices)
 
     # write to CSV
