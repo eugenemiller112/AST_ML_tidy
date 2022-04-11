@@ -34,8 +34,8 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
     for e in exp_list:
         e_path = os.path.join(os.path.join(data_dir, e), 'processed')
 
-        res_names = res_wells.get(e)  # get names of resistant wells
-        print(e)
+        res_names = [res_wells.get(e)]  # get names of resistant wells
+
         rintlist = []
         for w in res_names:
 
@@ -55,10 +55,10 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
             valid_ns = []  # arr to save which wells will be in valid set
 
             # determine which of the paths will be in test, valid
-            for i in range(math.ceil(tprob * len(res_names))):
+            for i in range(math.floor(tprob * len(res_names))):
                 test_ns.append(rarr.pop())
 
-            for i in range(math.ceil(vprob * len(res_names))):
+            for i in range(math.floor(vprob * len(res_names))):
                 valid_ns.append(rarr.pop())
 
             # loop through and assign to correct directory (train, valid, or test)
@@ -87,7 +87,7 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
                 n += 1
 
         # same code but for susceptible wells
-        sus_names = sus_wells.get(e)
+        sus_names = [sus_wells.get(e)]
 
         for w in sus_names:
 
@@ -105,10 +105,10 @@ def perfect_shuffle(data_dir: str, save_dir: str, exp_list, res_wells: dict, sus
             test_ns = []
             valid_ns = []
 
-            for i in range(math.ceil(tprob * len(sus_names))):
+            for i in range(math.floor(tprob * len(sus_names))):
                 test_ns.append(rarr.pop())
 
-            for i in range(math.ceil(vprob * len(sus_names))):
+            for i in range(math.floor(vprob * len(sus_names))):
                 valid_ns.append(rarr.pop())
 
             n = 1
@@ -265,6 +265,7 @@ def color_all_preds(exp_dir: str, model):
             color_seg_preds(os.path.join(seg_dir, well[:len(well) - 5]) + '.npy',
                             os.path.join(seg_dir, well[:len(well) - 5]) + '1.tif.png',
                             well_path, model)
+
 
 # predictions for multiple concentrations of drug in same experiment.
 def titration_pred(save_path: str, model_path: str, csv_path: str):

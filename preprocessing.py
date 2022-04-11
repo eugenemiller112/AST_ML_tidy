@@ -180,7 +180,8 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
         seg_video = normalize(seg_load)
 
         # call segmentation
-        seg_video, keys = jitter_correct(seg_video, lag=jitter_settings['lag'], crop=jitter_settings['crop'], upsample=jitter_settings['upsample'],
+        seg_video, keys = jitter_correct(seg_video, lag=jitter_settings['lag'], crop=jitter_settings['crop'],
+                                         upsample=jitter_settings['upsample'],
                                          test_jitter=False)
         dat_video = apply_jitter_correct(dat_load, keys)
 
@@ -193,10 +194,11 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
             return
 
         # call segmentation
-        seg, inds = segment(seg_video[5, :, :], crop=jitter_settings['crop'], min_sigma=jitter_settings['min_sigma'],
-                            max_sigma=jitter_settings['max_sigma'], num_sigma=jitter_settings['num_sigma'],
-                            threshold=jitter_settings['threshold'], overlap=jitter_settings['overlap'], radius=jitter_settings['radius'],
-                            min_size=jitter_settings['min_size'], block_size=jitter_settings['block_size'])
+        seg, inds = segment(seg_video[5, :, :], crop=seg_settings['crop'], min_sigma=seg_settings['min_sigma'],
+                            max_sigma=seg_settings['max_sigma'], num_sigma=seg_settings['num_sigma'],
+                            threshold=seg_settings['threshold'], overlap=seg_settings['overlap'],
+                            radius=seg_settings['radius'],
+                            min_size=seg_settings['min_size'], block_size=seg_settings['block_size'])
 
         if os.path.exists(os.path.join(os.path.join(save_path, 'segmentations'), 'numpy')):
             n = 0
@@ -236,7 +238,7 @@ def process(data_path: str, seg_channel: int, dat_channel: int, seg_settings: di
 
 
 # Select a single well from source to dest.
-def well_select(source_dir: str, dest_dir: str, row: str):
+def row_select(source_dir: str, dest_dir: str, row: str):
     for folder in listdir_nods(source_dir):
         if folder == 'testing' or folder == 'segmentations':
             continue
@@ -248,10 +250,10 @@ def well_select(source_dir: str, dest_dir: str, row: str):
                 shutil.copy(file_source_path, file_copy_path)
 
 
-# select multiple wells
-def well_select_2000(source_dir: str, dest_dir: str, rows):
+# select multiple rows
+def row_select_2000(source_dir: str, dest_dir: str, rows):
     for row in rows:
-        well_select(source_dir, dest_dir, str(row))
+        row_select(source_dir, dest_dir, str(row))
 
 
 # @TODO add labels

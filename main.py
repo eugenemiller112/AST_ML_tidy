@@ -6,22 +6,17 @@ import time
 
 
 def main():
-    jitter_settings = {'lag': 3,
-                       'crop': 100,
-                       'upsample': 100}
+    exp_list = ['20220325_KanTitration']
 
-    seg_settings = {'crop': 200,
-                    'min_sigma': 10,
-                    'max_sigma': 50,
-                    'num_sigma': 50,
-                    'threshold': .000001,
-                    'overlap': 0,
-                    'radius': 5,
-                    'min_size': 30,
-                    'block_size': 3}
+    res = dict([['20220325_KanTitration', 'H1']])
 
-    process('/Volumes/External/20220325_KanTitration', 1, 0, seg_settings=seg_settings,
-            jitter_settings=jitter_settings, test_jitter=True, test_seg=True)
+    sus = dict([['20220325_KanTitration', 'G1']])
+
+    perfect_shuffle('/Volumes/External',
+    '/Users/eugenemiller/Desktop/Modeling-3-25-22/0ug',
+    exp_list,
+    res,
+    sus)
 
 
 if __name__ == '__main__':
