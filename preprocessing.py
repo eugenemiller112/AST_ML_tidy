@@ -275,7 +275,7 @@ def images_to_tensors(source_dir: str, xdim: int, ydim: int, label: int):
     counter = 0
     for image in listdir_nods(source_dir):
         im = np.asarray(imageio.imread(os.path.join(source_dir, image)))  # load image
-        tensor[:, :, counter, :] = im  # push to tensor
+        tensor[:, :, counter] = im  # push to tensor
         counter += 1
 
     return tensor, labels  # return tensor

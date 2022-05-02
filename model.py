@@ -221,6 +221,7 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
 
     # looping through the different categories (Resistant, Susceptible)
     lab = 0
+    # TODO check dimensions -  do I want to transpose the data?
     for cat in listdir_nods(train_dir):
         print(cat, "label: ", lab)
 
@@ -230,21 +231,21 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
 
         # Get the training data for this category
         cat_train_dat, cat_train_lab = images_to_tensors(os.path.join(train_dir, cat),
-                                                         xdim=input_shape[1], ydim=input_shape[0], label=lab)
-        train_dat.append(cat_train_lab)
-        train_lab.append(cat_train_lab)
+                                                         xdim=input_shape[0], ydim=input_shape[1], label=lab)
+        train_dat.extend(cat_train_lab)
+        train_lab.extend(cat_train_lab)
 
         # Get the validation data for this category
         cat_val_dat, cat_val_lab = images_to_tensors(os.path.join(val_dir, cat),
-                                                     xdim=input_shape[1], ydim=input_shape[0], label=lab)
-        train_dat.append(cat_val_lab)
-        train_lab.append(cat_val_lab)
+                                                     xdim=input_shape[0], ydim=input_shape[1], label=lab)
+        val_dat.extend(cat_val_lab)
+        val_lab.extend(cat_val_lab)
 
         # Get the test data for this category
         cat_test_dat, cat_test_lab = images_to_tensors(os.path.join(test_dir, cat),
-                                                       xdim=input_shape[1], ydim=input_shape[0], label=lab)
-        train_dat.append(cat_test_lab)
-        train_lab.append(cat_test_lab)
+                                                       xdim=input_shape[0], ydim=input_shape[1], label=lab)
+        test_dat.extend(cat_test_lab)
+        test_lab.extend(cat_test_lab)
 
         lab += 1
 
@@ -252,6 +253,7 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
     class_weight = dict()
     n_data = np.sum(len_data)
     for l in labs:
+        print(len_data[l])
         class_weight[l] = len_data[l] / n_data
 
     # The machine learns!!
@@ -268,6 +270,10 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
 
     early_stop = EarlyStopping(monitor='val_loss',
                                patience=2)  # if validation loss strictly increasing, stop training early
+
+    model.compile(loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+                  optimizer="SGD",
+                  metrics=["accuracy"])
 
     history = model.fit(x=train_dat, y=train_lab, epochs=10,
                         validation_data=(val_dat, val_lab), callbacks=[early_stop],
