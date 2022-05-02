@@ -6,18 +6,11 @@ import time
 
 
 def main():
-    exp_list = ['20220325_KanTitration']
-
-    res = dict([['20220325_KanTitration', 'H1']])
-
-    sus = dict([['20220325_KanTitration', 'G1']])
-
-    perfect_shuffle('/Volumes/External',
-    '/Users/eugenemiller/Desktop/Modeling-3-25-22/0ug',
-    exp_list,
-    res,
-    sus)
-
+    model, test_dat, test_lab, history = generate_RNN(
+        test_dir='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/test',
+        val_dir='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/valid',
+        train_dir='/Users/eugenemiller/Desktop/Lab/Data-0ug-25ug-Titration/train'
+    )
 
 if __name__ == '__main__':
     main()

@@ -32,7 +32,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 @tf.autograph.experimental.do_not_convert
 def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, input_shape=(120, 69, 1),
                  do_data_augmentation=False):
-
     tf.keras.backend.clear_session()
     tf.random.set_seed(1)
 
@@ -102,7 +101,6 @@ def generate_cnn(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
 # Generate a CNN and plot the ROC curve
 def generate_ROC_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path: str, cross_validations: int,
                      verbose=False):
-
     tpr_values = []
     fpr_values = []
     roc_scores = []
@@ -203,13 +201,60 @@ def generate_ROC_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path
     tf.saved_model.save(best, modsave_path)
 
 
-def generate_RNN(train_dir: str, val_dir: str, test_dir: str, class_weight, input_shape=(120, 69, 1),
+def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 69, 1),
                  do_data_augmentation=False):
+    # array to save training data
+    train_dat = []
+    train_lab = []
 
-    train_data = images_to_tensors(source_dir=train_dir)
-    val_data = images_to_tensors(source_dir=val_dir)
-    test_data = images_to_tensors(source_dir=test_dir)
+    # array to save validation data
+    val_dat = []
+    val_lab = []
 
+    # array to save test data
+    test_dat = []
+    test_lab = []
+
+    # arrays to calculate class weights
+    len_data = []
+    labs = []
+
+    # looping through the different categories (Resistant, Susceptible)
+    lab = 0
+    for cat in listdir_nods(train_dir):
+        print(cat, "label: ", lab)
+
+        # Get data to be used to calculate class weights
+        len_data.append(len(listdir_nods(os.path.join(train_dir, cat))))
+        labs.append(lab)
+
+        # Get the training data for this category
+        cat_train_dat, cat_train_lab = images_to_tensors(os.path.join(train_dir, cat),
+                                                         xdim=input_shape[1], ydim=input_shape[0], label=lab)
+        train_dat.append(cat_train_lab)
+        train_lab.append(cat_train_lab)
+
+        # Get the validation data for this category
+        cat_val_dat, cat_val_lab = images_to_tensors(os.path.join(val_dir, cat),
+                                                     xdim=input_shape[1], ydim=input_shape[0], label=lab)
+        train_dat.append(cat_val_lab)
+        train_lab.append(cat_val_lab)
+
+        # Get the test data for this category
+        cat_test_dat, cat_test_lab = images_to_tensors(os.path.join(test_dir, cat),
+                                                       xdim=input_shape[1], ydim=input_shape[0], label=lab)
+        train_dat.append(cat_test_lab)
+        train_lab.append(cat_test_lab)
+
+        lab += 1
+
+    # Calculate the class weights and save to dict.
+    class_weight = dict()
+    n_data = np.sum(len_data)
+    for l in labs:
+        class_weight[l] = len_data[l] / n_data
+
+    # The machine learns!!
     model = keras.Sequential()
     model.add(layers.Embedding(input_dim=1000, output_dim=64))
 
@@ -220,3 +265,12 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, class_weight, inpu
     model.add(layers.SimpleRNN(128))
 
     model.add(layers.Dense(2, activation='sigmoid'))
+
+    early_stop = EarlyStopping(monitor='val_loss',
+                               patience=2)  # if validation loss strictly increasing, stop training early
+
+    history = model.fit(x=train_dat, y=train_lab, epochs=10,
+                        validation_data=(val_dat, val_lab), callbacks=[early_stop],
+                        class_weight=class_weight)
+
+    return model, test_dat, test_lab, history
