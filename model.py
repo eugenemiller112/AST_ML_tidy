@@ -272,20 +272,31 @@ def generate_ROC_CNN(train_dir: str, valid_dir: str, test_dir: str, modsave_path
 
 def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 69, 1),
                  do_data_augmentation=False):
+
+    n_train = 0
+    n_val = 0
+    n_test = 0
+    for cat in listdir_nods(train_dir):
+        n_train += len(listdir_nods(os.path.join(train_dir, cat)))
+        n_val += len(listdir_nods(os.path.join(val_dir, cat)))
+        n_test += len(listdir_nods(os.path.join(test_dir, cat)))
+
     # array to save training data
-    train_dat = []
-    train_lab = []
+    train_dat = np.empty((n_train, input_shape[0], input_shape[1]))
+    train_lab = np.empty(n_train)
 
     # array to save validation data
-    val_dat = []
-    val_lab = []
+    val_dat = np.empty((n_val, input_shape[0], input_shape[1]))
+    val_lab = np.empty(n_val)
 
     # array to save test data
-    test_dat = []
-    test_lab = []
+    test_dat = np.empty((n_test, input_shape[0], input_shape[1]))
+    test_lab = np.empty(n_test)
 
     # arrays to calculate class weights
     len_data = []
+    len_val = []
+    len_test = []
     labs = []
 
     # looping through the different categories (Resistant, Susceptible)
@@ -298,23 +309,39 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
         len_data.append(len(listdir_nods(os.path.join(train_dir, cat))))
         labs.append(lab)
 
+        len_val.append(len(listdir_nods(os.path.join(val_dir, cat))))
+        len_test.append(len(listdir_nods(os.path.join(test_dir, cat))))
+
         # Get the training data for this category
         cat_train_dat, cat_train_lab = images_to_tensors(os.path.join(train_dir, cat),
                                                          xdim=input_shape[0], ydim=input_shape[1], label=lab)
-        train_dat.extend(cat_train_lab)
-        train_lab.extend(cat_train_lab)
 
         # Get the validation data for this category
         cat_val_dat, cat_val_lab = images_to_tensors(os.path.join(val_dir, cat),
                                                      xdim=input_shape[0], ydim=input_shape[1], label=lab)
-        val_dat.extend(cat_val_lab)
-        val_lab.extend(cat_val_lab)
 
         # Get the test data for this category
         cat_test_dat, cat_test_lab = images_to_tensors(os.path.join(test_dir, cat),
                                                        xdim=input_shape[0], ydim=input_shape[1], label=lab)
-        test_dat.extend(cat_test_lab)
-        test_lab.extend(cat_test_lab)
+
+        if not lab:
+            train_dat[0:len_data[lab], :, :] = np.transpose(cat_train_dat, (2, 0, 1))
+            train_lab[0:len_data[lab]] = cat_train_lab
+
+            val_dat[0:len_val[lab], :, :] = np.transpose(cat_val_dat, (2, 0, 1))
+            val_lab[0:len_val[lab]] = cat_val_lab
+
+            test_dat[0:len_test[lab], :, :] = np.transpose(cat_test_dat, (2, 0, 1))
+            test_lab[0:len_test[lab]] = cat_test_lab
+        else:
+            train_dat[len_data[lab-1]:len_data[lab-1]+len_data[lab], :, :] = np.transpose(cat_train_dat, (2, 0, 1))
+            train_lab[len_data[lab-1]:len_data[lab-1]+len_data[lab]] = cat_train_lab
+
+            val_dat[len_val[lab - 1]:len_val[lab-1]+len_val[lab], :, :] = np.transpose(cat_val_dat, (2, 0, 1))
+            val_lab[len_val[lab - 1]:len_val[lab-1]+len_val[lab]] = cat_val_lab
+
+            test_dat[len_test[lab - 1]:len_test[lab-1]+len_test[lab], :, :] = np.transpose(cat_test_dat, (2, 0, 1))
+            test_lab[len_test[lab - 1]:len_test[lab-1]+len_test[lab]] = cat_test_lab
 
         lab += 1
 
@@ -322,29 +349,31 @@ def generate_RNN(train_dir: str, val_dir: str, test_dir: str, input_shape=(120, 
     class_weight = dict()
     n_data = np.sum(len_data)
     for l in labs:
-        print(len_data[l])
         class_weight[l] = len_data[l] / n_data
 
     # The machine learns!!
     model = keras.Sequential()
-    model.add(layers.Embedding(input_dim=1000, output_dim=64))
 
     # The output of GRU will be a 3D tensor of shape (batch_size, timesteps, 256)
-    model.add(layers.GRU(256, return_sequences=True))
+    model.add(layers.GRU(512, input_shape=(120, 69)))
+
+    #model.add(layers.Embedding(output_dim=3, input_dim=2))
 
     # The output of SimpleRNN will be a 2D tensor of shape (batch_size, 128)
-    model.add(layers.SimpleRNN(128))
+    #model.add(layers.SimpleRNN(128))
 
     model.add(layers.Dense(2, activation='sigmoid'))
 
     early_stop = EarlyStopping(monitor='val_loss',
                                patience=2)  # if validation loss strictly increasing, stop training early
 
+    model.summary()
+
     model.compile(loss=keras.losses.SparseCategoricalCrossentropy(from_logits=False),
                   optimizer=CustomAdam(),
                   metrics=["accuracy"])
 
-    history = model.fit(x=train_dat, y=train_lab, epochs=100,
+    history = model.fit(x=train_dat, y=train_lab, epochs=10, batch_size=32,
                         validation_data=(val_dat, val_lab), callbacks=[early_stop],
                         class_weight=class_weight)
 

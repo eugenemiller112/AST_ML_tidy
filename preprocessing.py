@@ -3,6 +3,7 @@ import re
 import shutil
 import cv2
 import imageio
+from PIL import Image
 import imreg_dft as imr
 import numpy as np
 import skimage
@@ -274,7 +275,7 @@ def images_to_tensors(source_dir: str, xdim: int, ydim: int, label: int):
 
     counter = 0
     for image in listdir_nods(source_dir):
-        im = np.asarray(imageio.imread(os.path.join(source_dir, image)))  # load image
+        im = np.asarray(Image.open(os.path.join(source_dir, image)))  # load image
         tensor[:, :, counter] = im  # push to tensor
         counter += 1
 
